@@ -160,11 +160,8 @@ void age_routes(RoutingTable& table, uint64_t turn) {
         uint64_t age = turn - route.last_seen;
 
         if (route.is_direct) {
-            if (route.distance != DISTANCE_INFINITY && age >= kNeighborTimeoutTurns) {
-                char net_buf[INET_ADDRSTRLEN];
-                debug_log("[AGE] direct timeout -> unreachable %s/%u", ip_to_str(route.network, net_buf, sizeof(net_buf)), route.mask);
-                route.distance = DISTANCE_INFINITY;
-            }
+            // Direct networks are kept permanently. Their availability is handled
+            // by send success/failure on the corresponding interface.
             continue;
         }
 
@@ -236,11 +233,11 @@ bool send_routes_to_neighbor(
     uint32_t direct_network = network_prefix(iface.ip_net, iface.mask);
     RouteEntry* direct_route = table.lookup_exact(direct_network, iface.mask);
     if (direct_route != nullptr) {
-        if (any_failure) {
-            direct_route->distance = DISTANCE_INFINITY;
-        } else if (any_success) {
+        if (any_success) {
             direct_route->distance = direct_route->direct_distance;
             direct_route->last_seen = turn;
+        } else if (any_failure) {
+            direct_route->distance = DISTANCE_INFINITY;
         }
     }
 
