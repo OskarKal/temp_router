@@ -6,8 +6,10 @@
 #include <arpa/inet.h>
 #include <cerrno>
 #include <chrono>
+#include <cstdarg>
 #include <cstdio>
 #include <cstring>
+#include <cstdlib>
 #include <netinet/in.h>
 #include <sys/select.h>
 #include <sys/socket.h>
@@ -20,6 +22,32 @@ constexpr auto kTurnInterval = std::chrono::seconds(5);
 constexpr uint64_t kNeighborTimeoutTurns = 2;
 constexpr uint64_t kStaleRemovalTurns = 4;
 constexpr uint64_t kDirectStopAdvertisingTurns = 3;
+
+bool debug_enabled() {
+    const char* env = std::getenv("ROUTER_DEBUG");
+    return env != nullptr && env[0] != '\0' && env[0] != '0';
+}
+
+void debug_log(const char* format, ...) {
+    if (!debug_enabled()) {
+        return;
+    }
+
+    std::va_list args;
+    va_start(args, format);
+    std::vfprintf(stderr, format, args);
+    std::fprintf(stderr, "\n");
+    va_end(args);
+}
+
+const char* ip_to_str(uint32_t ip_net_order, char* buffer, std::size_t size) {
+    in_addr addr{};
+    addr.s_addr = ip_net_order;
+    if (inet_ntop(AF_INET, &addr, buffer, static_cast<socklen_t>(size)) == nullptr) {
+        std::snprintf(buffer, size, "<invalid>");
+    }
+    return buffer;
+}
 
 uint32_t host_mask(uint8_t mask) {
     if (mask == 0) {
@@ -133,16 +161,22 @@ void age_routes(RoutingTable& table, uint64_t turn) {
 
         if (route.is_direct) {
             if (route.distance != DISTANCE_INFINITY && age >= kNeighborTimeoutTurns) {
+                char net_buf[INET_ADDRSTRLEN];
+                debug_log("[AGE] direct timeout -> unreachable %s/%u", ip_to_str(route.network, net_buf, sizeof(net_buf)), route.mask);
                 route.distance = DISTANCE_INFINITY;
             }
             continue;
         }
 
         if (route.distance != DISTANCE_INFINITY && age >= kNeighborTimeoutTurns) {
+            char net_buf[INET_ADDRSTRLEN];
+            debug_log("[AGE] stale route -> unreachable %s/%u via age=%llu", ip_to_str(route.network, net_buf, sizeof(net_buf)), route.mask, static_cast<unsigned long long>(age));
             route.distance = DISTANCE_INFINITY;
         }
 
         if (route.distance == DISTANCE_INFINITY && age >= kStaleRemovalTurns) {
+            char net_buf[INET_ADDRSTRLEN];
+            debug_log("[AGE] removing route %s/%u", ip_to_str(route.network, net_buf, sizeof(net_buf)), route.mask);
             route.removed = true;
         }
     }
@@ -177,8 +211,25 @@ bool send_routes_to_neighbor(
 
         if (sent != static_cast<ssize_t>(sizeof(packet))) {
             any_failure = true;
+            char dst_buf[INET_ADDRSTRLEN];
+            char net_buf[INET_ADDRSTRLEN];
+            debug_log(
+                "[TX] sendto failed: to=%s net=%s/%u dist=%u errno=%d",
+                ip_to_str(neighbor.sin_addr.s_addr, dst_buf, sizeof(dst_buf)),
+                ip_to_str(route.network, net_buf, sizeof(net_buf)),
+                route.mask,
+                route.distance,
+                errno);
         } else {
             any_success = true;
+            char dst_buf[INET_ADDRSTRLEN];
+            char net_buf[INET_ADDRSTRLEN];
+            debug_log(
+                "[TX] sent: to=%s net=%s/%u dist=%u",
+                ip_to_str(neighbor.sin_addr.s_addr, dst_buf, sizeof(dst_buf)),
+                ip_to_str(route.network, net_buf, sizeof(net_buf)),
+                route.mask,
+                route.distance);
         }
     }
 
@@ -238,10 +289,13 @@ void receive_pending_packets(int sockfd, RoutingTable& table, uint64_t turn) {
             if (errno == EINTR) {
                 continue;
             }
+            debug_log("[RX] recvfrom failed errno=%d", errno);
             return;
         }
 
         uint32_t sender_ip = source.sin_addr.s_addr;
+        char sender_buf[INET_ADDRSTRLEN];
+        debug_log("[RX] packet from=%s bytes=%zd", ip_to_str(sender_ip, sender_buf, sizeof(sender_buf)), received);
         process_packet(table, sender_ip, turn, buffer, static_cast<std::size_t>(received));
     }
 }
@@ -299,6 +353,7 @@ int main() {
     while (true) {
         auto now = clock::now();
         if (now >= next_turn) {
+            debug_log("[TURN] %llu", static_cast<unsigned long long>(turn));
             age_routes(table, turn);
             send_current_vector(sockfd, table, interfaces, neighbors, turn);
             print_routing_table(table);
