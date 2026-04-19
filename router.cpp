@@ -198,20 +198,40 @@ bool send_routes_to_neighbor(
         packet.mask = route.mask;
         packet.distance = htonl(route.distance);
 
-        ssize_t sent = sendto(
-            sockfd,
-            &packet,
-            sizeof(packet),
-            0,
-            reinterpret_cast<const sockaddr*>(&neighbor),
-            sizeof(neighbor));
+        iovec iov{};
+        iov.iov_base = &packet;
+        iov.iov_len = sizeof(packet);
+
+        char control[CMSG_SPACE(sizeof(in_pktinfo))];
+        std::memset(control, 0, sizeof(control));
+
+        msghdr message{};
+        message.msg_name = const_cast<sockaddr*>(reinterpret_cast<const sockaddr*>(&neighbor));
+        message.msg_namelen = sizeof(neighbor);
+        message.msg_iov = &iov;
+        message.msg_iovlen = 1;
+        message.msg_control = control;
+        message.msg_controllen = sizeof(control);
+
+        cmsghdr* cmsg = CMSG_FIRSTHDR(&message);
+        cmsg->cmsg_level = IPPROTO_IP;
+        cmsg->cmsg_type = IP_PKTINFO;
+        cmsg->cmsg_len = CMSG_LEN(sizeof(in_pktinfo));
+
+        in_pktinfo pktinfo{};
+        pktinfo.ipi_spec_dst.s_addr = iface.ip_net;
+        std::memcpy(CMSG_DATA(cmsg), &pktinfo, sizeof(pktinfo));
+
+        ssize_t sent = sendmsg(sockfd, &message, 0);
 
         if (sent != static_cast<ssize_t>(sizeof(packet))) {
             any_failure = true;
             char dst_buf[INET_ADDRSTRLEN];
             char net_buf[INET_ADDRSTRLEN];
+            char src_buf[INET_ADDRSTRLEN];
             debug_log(
-                "[TX] sendto failed: to=%s net=%s/%u dist=%u errno=%d",
+                "[TX] sendmsg failed: src=%s to=%s net=%s/%u dist=%u errno=%d",
+                ip_to_str(iface.ip_net, src_buf, sizeof(src_buf)),
                 ip_to_str(neighbor.sin_addr.s_addr, dst_buf, sizeof(dst_buf)),
                 ip_to_str(route.network, net_buf, sizeof(net_buf)),
                 route.mask,
@@ -221,8 +241,10 @@ bool send_routes_to_neighbor(
             any_success = true;
             char dst_buf[INET_ADDRSTRLEN];
             char net_buf[INET_ADDRSTRLEN];
+            char src_buf[INET_ADDRSTRLEN];
             debug_log(
-                "[TX] sent: to=%s net=%s/%u dist=%u",
+                "[TX] sent: src=%s to=%s net=%s/%u dist=%u",
+                ip_to_str(iface.ip_net, src_buf, sizeof(src_buf)),
                 ip_to_str(neighbor.sin_addr.s_addr, dst_buf, sizeof(dst_buf)),
                 ip_to_str(route.network, net_buf, sizeof(net_buf)),
                 route.mask,
