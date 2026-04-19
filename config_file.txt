@@ -1,0 +1,56 @@
+sudo ip addr add 10.0.1.1/26 dev enp0s3
+sudo ip link set dev enp0s3 up
+sudo ip addr add 10.0.4.2/29 dev enp0s8
+sudo ip link set dev enp0s8 up
+
+Virbian1:
+Plaintext
+
+sudo ip addr add 10.0.4.1/29 dev enp0s3
+sudo ip link set dev enp0s3 up
+sudo ip addr add 10.0.2.2/27 dev enp0s8
+sudo ip link set dev enp0s8 up
+
+Virbian2:
+Plaintext
+
+sudo ip addr add 10.0.2.1/27 dev enp0s3
+sudo ip link set dev enp0s3 up
+sudo ip addr add 10.0.3.2/28 dev enp0s8
+sudo ip link set dev enp0s8 up
+
+Virbian3:
+Plaintext
+
+sudo ip addr add 10.0.3.1/28 dev enp0s3
+sudo ip link set dev enp0s3 up
+sudo ip addr add 10.0.1.2/26 dev enp0s8
+sudo ip link set dev enp0s8 up
+
+Virbian0:
+Plaintext
+
+2
+10.0.1.1/26 distance 2
+10.0.4.2/29 distance 4
+
+Virbian1:
+Plaintext
+
+2
+10.0.4.1/29 distance 4
+10.0.2.2/27 distance 1
+
+Virbian2:
+Plaintext
+
+2
+10.0.2.1/27 distance 1
+10.0.3.2/28 distance 3
+
+Virbian3:
+Plaintext
+
+2
+10.0.3.1/28 distance 3
+10.0.1.2/26 distance 2
