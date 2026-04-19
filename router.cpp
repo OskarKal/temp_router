@@ -265,7 +265,16 @@ void process_packet(RoutingTable& table, uint32_t sender_ip, uint64_t turn, cons
     update_distance_vector(&table, sender_ip, turn, packet);
 }
 
-void receive_pending_packets(int sockfd, RoutingTable& table, uint64_t turn) {
+bool is_local_sender(uint32_t sender_ip, const std::vector<InterfaceInfo>& interfaces) {
+    for (const InterfaceInfo& iface : interfaces) {
+        if (iface.ip_net == sender_ip) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void receive_pending_packets(int sockfd, RoutingTable& table, const std::vector<InterfaceInfo>& interfaces, uint64_t turn) {
     for (;;) {
         uint8_t buffer[sizeof(RoutingPacket)];
         sockaddr_in source{};
@@ -293,6 +302,12 @@ void receive_pending_packets(int sockfd, RoutingTable& table, uint64_t turn) {
         uint32_t sender_ip = source.sin_addr.s_addr;
         char sender_buf[INET_ADDRSTRLEN];
         debug_log("[RX] packet from=%s bytes=%zd", ip_to_str(sender_ip, sender_buf, sizeof(sender_buf)), received);
+
+        if (is_local_sender(sender_ip, interfaces)) {
+            debug_log("[RX] drop self packet from=%s", ip_to_str(sender_ip, sender_buf, sizeof(sender_buf)));
+            continue;
+        }
+
         process_packet(table, sender_ip, turn, buffer, static_cast<std::size_t>(received));
     }
 }
@@ -378,7 +393,7 @@ int main() {
         }
 
         if (ready > 0 && FD_ISSET(sockfd, &read_fds)) {
-            receive_pending_packets(sockfd, table, turn);
+            receive_pending_packets(sockfd, table, interfaces, turn);
         }
     }
 
