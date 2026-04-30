@@ -68,6 +68,31 @@ uint32_t network_prefix(uint32_t ip_net, uint8_t mask) {
     return htonl(host_ip & mask_bits);
 }
 
+void invalidate_routes_via_network(RoutingTable& table, uint32_t network, uint8_t mask, uint64_t turn) {
+    uint32_t direct_network_host = ntohl(network);
+    uint32_t mask_bits = host_mask(mask);
+
+    for (RouteEntry& route : table.routes()) {
+        if (route.removed) {
+            continue;
+        }
+
+        if (route.is_direct) {
+            if (route.network == network && route.mask == mask) {
+                route.distance = DISTANCE_INFINITY;
+                route.last_seen = turn;
+            }
+            continue;
+        }
+
+        uint32_t via_host = ntohl(route.via_ip);
+        if ((via_host & mask_bits) == direct_network_host) {
+            route.distance = DISTANCE_INFINITY;
+            route.last_seen = turn;
+        }
+    }
+}
+
 uint32_t broadcast_address(uint32_t ip_net, uint8_t mask) {
     uint32_t host_ip = ntohl(ip_net);
     uint32_t mask_bits = host_mask(mask);
@@ -239,6 +264,8 @@ bool send_routes_to_neighbor(
                 route.mask,
                 route.distance,
                 errno);
+            //todo add setting interface down
+            
         } else {
             any_success = true;
             char dst_buf[INET_ADDRSTRLEN];
@@ -257,11 +284,11 @@ bool send_routes_to_neighbor(
     uint32_t direct_network = network_prefix(iface.ip_net, iface.mask);
     RouteEntry* direct_route = table.lookup_exact(direct_network, iface.mask);
     if (direct_route != nullptr) {
-        if (any_success) {
+        if (any_failure) {
+            invalidate_routes_via_network(table, direct_network, iface.mask, turn);
+        } else if (any_success) {
             direct_route->distance = direct_route->direct_distance;
             direct_route->last_seen = turn;
-        } else if (any_failure) {
-            direct_route->distance = DISTANCE_INFINITY;
         }
     }
 
@@ -354,7 +381,7 @@ bool bind_socket(int sockfd) {
     return bind(sockfd, reinterpret_cast<const sockaddr*>(&address), sizeof(address)) == 0;
 }
 
-}  // namespace
+} 
 
 // tura, starzenie, wysylka, odbior, pokazanie tabeli.
 int main() {
