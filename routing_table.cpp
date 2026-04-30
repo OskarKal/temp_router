@@ -1,3 +1,4 @@
+//Oskar Kalinowski 352818
 #include "routing_table.h"
 
 #include <arpa/inet.h>
@@ -46,17 +47,9 @@ void RoutingTable::insert(uint32_t network, uint8_t mask, const RouteEntry& data
     routes_[route_index] = stored;
 }
 
-RouteEntry* RoutingTable::lookup(uint32_t ip) {
-    const RoutingTable* self = this;
-    return const_cast<RouteEntry*>(self->lookup(ip));
-}
 
+// przejscie po dokladnym prefiksie.
 RouteEntry* RoutingTable::lookup_exact(uint32_t network, uint8_t mask) {
-    const RoutingTable* self = this;
-    return const_cast<RouteEntry*>(self->lookup_exact(network, mask));
-}
-
-const RouteEntry* RoutingTable::lookup_exact(uint32_t network, uint8_t mask) const {
     if (mask > 32) {
         return nullptr;
     }
@@ -83,7 +76,8 @@ const RouteEntry* RoutingTable::lookup_exact(uint32_t network, uint8_t mask) con
 }
 
 
-const RouteEntry* RoutingTable::lookup(uint32_t ip) const {
+// idziemy po bitach i pamietamy najlepszy wpis.
+RouteEntry* RoutingTable::lookup(uint32_t ip) {
     uint32_t host_order_ip = ntohl(ip);
     uint32_t node_index = 0;
 

@@ -1,3 +1,4 @@
+//Oskar Kalinowski 352818
 #include "config.h"
 
 #include <arpa/inet.h>
@@ -7,9 +8,11 @@
 #include <vector>
 
 namespace {
+// bufor na linie z konfiguracja.
 constexpr int kBufferSize = 128;
 }
 
+// parser wejscia: liczba interfejsow + linie ip/maska distance x.
 std::vector<InterfaceInfo> getConfig() {
     char buffer[kBufferSize];
     if (std::fgets(buffer, kBufferSize, stdin) == nullptr) {

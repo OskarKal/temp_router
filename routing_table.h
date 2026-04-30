@@ -1,3 +1,4 @@
+//Oskar Kalinowski 352818
 #pragma once
 
 #include "common.h"
@@ -7,25 +8,21 @@
 #include <deque>
 #include <vector>
 
-// Infinity distance value used by routing protocol.
 constexpr uint32_t DISTANCE_INFINITY = 0xFFFFFFFFu;
 
 class RoutingTable {
 public:
 	RoutingTable();
 
-	// Inserts or updates route for a CIDR prefix.
-	// network must be in network byte order, mask in range [0, 32].
+	// dodaje albo nadpisuje trase dla prefiksu.
 	void insert(uint32_t network, uint8_t mask, const RouteEntry& data);
 
-	// Longest Prefix Match lookup for destination IP in network byte order.
-	// Returns nullptr when no route is available.
+	// lpm lookup dla ip w kolejnosci sieciowej.
+	// zwraca nullptr gdy brak pasujacej trasy.
 	RouteEntry* lookup(uint32_t ip);
-	const RouteEntry* lookup(uint32_t ip) const;
 
-	// Exact prefix lookup for network/mask pair in network byte order.
-	RouteEntry* lookup_exact(uint32_t network, uint8_t mask);
-	const RouteEntry* lookup_exact(uint32_t network, uint8_t mask) const;
+	// exact lookup dla pary network/maska.
+	RouteEntry* lookup_exact(uint32_t network, uint8_t mask) ;
 
 	void clear();
 	size_t node_count() const;

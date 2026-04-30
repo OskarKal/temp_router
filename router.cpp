@@ -1,3 +1,4 @@
+//Oskar Kalinowski 352818
 #include "common.h"
 #include "config.h"
 #include "distance_vector.h"
@@ -151,6 +152,7 @@ void print_routing_table(const RoutingTable& table) {
     std::fflush(stdout);
 }
 
+// starzenie i sprzatanie
 void age_routes(RoutingTable& table, uint64_t turn) {
     for (RouteEntry& route : table.routes()) {
         if (route.removed) {
@@ -160,8 +162,7 @@ void age_routes(RoutingTable& table, uint64_t turn) {
         uint64_t age = turn - route.last_seen;
 
         if (route.is_direct) {
-            // Direct networks are kept permanently. Their availability is handled
-            // by send success/failure on the corresponding interface.
+            // Sieci bezposrednie trzymamy stale
             continue;
         }
 
@@ -179,6 +180,7 @@ void age_routes(RoutingTable& table, uint64_t turn) {
     }
 }
 
+// wyslanie wektora do sasiada
 bool send_routes_to_neighbor(
     int sockfd,
     RoutingTable& table,
@@ -287,6 +289,7 @@ void process_packet(RoutingTable& table, uint32_t sender_ip, uint64_t turn, cons
     update_distance_vector(&table, sender_ip, turn, packet);
 }
 
+// odrzucamy wlasne pakiety
 bool is_local_sender(uint32_t sender_ip, const std::vector<InterfaceInfo>& interfaces) {
     for (const InterfaceInfo& iface : interfaces) {
         if (iface.ip_net == sender_ip) {
@@ -295,6 +298,7 @@ bool is_local_sender(uint32_t sender_ip, const std::vector<InterfaceInfo>& inter
     }
     return false;
 }
+
 
 void receive_pending_packets(int sockfd, RoutingTable& table, const std::vector<InterfaceInfo>& interfaces, uint64_t turn) {
     for (;;) {
@@ -334,6 +338,7 @@ void receive_pending_packets(int sockfd, RoutingTable& table, const std::vector<
     }
 }
 
+
 void setup_socket(int sockfd) {
     int enabled = 1;
     (void)setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &enabled, sizeof(enabled));
@@ -351,6 +356,7 @@ bool bind_socket(int sockfd) {
 
 }  // namespace
 
+// tura, starzenie, wysylka, odbior, pokazanie tabeli.
 int main() {
     std::vector<InterfaceInfo> interfaces = getConfig();
 

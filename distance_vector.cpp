@@ -1,3 +1,5 @@
+//Oskar Kalinowski 352818
+
 #include "distance_vector.h"
 
 #include "routing_table.h"
@@ -8,6 +10,7 @@
 #include <cstdlib>
 
 namespace {
+// prog po ktorym dystans uznajemy za nieskonczonosc.
 constexpr uint32_t kDangerousDistanceThreshold = 1u << 28;
 
 bool debug_enabled() {
@@ -36,6 +39,7 @@ const char* ip_to_str(uint32_t ip_net_order, char* buffer, std::size_t size) {
     return buffer;
 }
 
+// bezpieczne dodawanie kosztow z obcieciem do inf.
 uint32_t add_distance_with_cap(uint32_t left, uint32_t right) {
     if (left >= kDangerousDistanceThreshold || right >= kDangerousDistanceThreshold) {
         return DISTANCE_INFINITY;
@@ -50,6 +54,7 @@ uint32_t add_distance_with_cap(uint32_t left, uint32_t right) {
 }
 }  // namespace
 
+// bellman-forda dla jednego wpisu.
 void update_distance_vector(
     RoutingTable* table,
     uint32_t sender_ip,

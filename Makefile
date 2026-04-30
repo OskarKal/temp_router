@@ -2,7 +2,7 @@ CXX := g++
 CXXFLAGS := -std=c++17 -Wall -Wextra -pedantic -O2
 
 TARGET := router
-OBJS := router.o config.o network.o routing_table.o distance_vector.o
+OBJS := router.o config.o routing_table.o distance_vector.o
 
 .PHONY: all clean distclean
 
